@@ -1,0 +1,51 @@
+{
+  "strategy": {
+    "name": "ml_strategy",
+    "parameters": {
+      "lookback_period": 20,
+      "prediction_threshold": 0.6,
+      "train_test_split": 0.8,
+      "rebalance_frequency": "daily",
+      "features": {
+        "returns": true,
+        "moving_averages": [5, 10, 20],
+        "rsi": true,
+        "bollinger_bands": true,
+        "momentum": true,
+        "volume": true
+      }
+    }
+  },
+  "risk_management": {
+    "max_position_size": 0.1,
+    "stop_loss_pct": 0.02,
+    "take_profit_pct": 0.04,
+    "max_daily_trades": 5,
+    "max_drawdown_pct": 0.1
+  },
+  "execution": {
+    "order_type": "market",
+    "time_in_force": "day",
+    "fractional_shares": true
+  },
+  "backtest": {
+    "commission": 0.0,
+    "slippage": 0.001,
+    "initial_capital": 10000.0
+  },
+  "live_trading": {
+    "update_interval": 60,
+    "market_hours_only": true,
+    "paper_trading": true
+  },
+  "alerts": {
+    "email_on_trade": true,
+    "email_on_error": true,
+    "email_daily_summary": true
+  },
+  "data": {
+    "timeframe": "1Day",
+    "adjustment": "raw",
+    "limit": 1000
+  }
+}
