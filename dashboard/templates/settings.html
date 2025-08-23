@@ -109,6 +109,12 @@
         </div>
     </div>
 </div>
+
+<!-- BEHOBEN: Server-seitige Konfiguration als JSON einbetten -->
+<script id="server-config" type="application/json">
+{{ config|tojsonfilter|safe if config else '{}' }}
+</script>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -131,10 +137,18 @@ function setupEventListeners() {
     document.getElementById('download-logs').addEventListener('click', downloadLogs);
 }
 
-async function loadCurrentConfig() {
+// BEHOBEN: Korrekte Konfiguration laden
+function loadCurrentConfig() {
     try {
-        const config = {{ config|tojsonfilter|safe if config else '{}' }};
-        displayConfig(config);
+        // Lade Konfiguration aus eingebettetem JSON-Script
+        const configScript = document.getElementById('server-config');
+        let configData = {};
+        
+        if (configScript && configScript.textContent.trim()) {
+            configData = JSON.parse(configScript.textContent);
+        }
+        
+        displayConfig(configData);
     } catch (error) {
         console.error('Config load error:', error);
         document.getElementById('current-config').innerHTML = 
@@ -184,7 +198,7 @@ function displayConfig(config) {
     }
 }
 
-async function loadSystemInfo() {
+function loadSystemInfo() {
     try {
         const info = {
             platform: navigator.platform,

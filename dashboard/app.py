@@ -1,5 +1,5 @@
 """
-TradingBot Dashboard - Flask Web Interface (KORRIGIERT)
+TradingBot Dashboard - Flask Web Interface (CORS-IMPORT BEHOBEN)
 Zeigt Live-Performance, Trades und System-Status
 """
 
@@ -25,6 +25,15 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
+# BEHOBEN: CORS-Import mit Fehlerbehandlung
+try:
+    from flask_cors import CORS
+    CORS_AVAILABLE = True
+except ImportError:
+    CORS_AVAILABLE = False
+    print("⚠️  flask-cors nicht installiert. CORS wird nicht aktiviert.")
+    print("   Installation: pip install flask-cors")
+
 from core.controller import TradingController
 from core.logger import setup_logger, get_logger
 
@@ -32,12 +41,10 @@ from core.logger import setup_logger, get_logger
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
 
-# CORS Support falls erforderlich
-try:
-    from flask_cors import CORS
+# CORS nur aktivieren wenn verfügbar
+if CORS_AVAILABLE:
     CORS(app)
-except ImportError:
-    pass  # CORS optional
+    print("✅ CORS aktiviert")
 
 # Logger
 logger = get_logger('Dashboard')
@@ -389,6 +396,21 @@ def main():
         else:
             logger.warning("Dashboard gestartet - Controller nicht verfügbar")
         
+        # Zeige wichtige Informationen
+        print("\n" + "="*60)
+        print("🌐 TRADINGBOT DASHBOARD GESTARTET")
+        print("="*60)
+        print(f"📊 Dashboard URL: http://127.0.0.1:5000")
+        print(f"🔧 CORS Status: {'✅ Aktiviert' if CORS_AVAILABLE else '⚠️  Nicht verfügbar'}")
+        print(f"📈 Plotly Status: {'✅ Verfügbar' if PLOTLY_AVAILABLE else '⚠️  Nicht verfügbar'}")
+        print(f"🤖 Controller: {'✅ Bereit' if controller else '❌ Nicht verfügbar'}")
+        print("="*60)
+        print("💡 Tipps:")
+        print("   • Für CORS-Support: pip install flask-cors")
+        print("   • Für Charts: pip install plotly")
+        print("   • Für vollständige Features: Alle Dependencies installieren")
+        print("="*60 + "\n")
+        
         # Starte Flask-App
         app.run(
             host='127.0.0.1',
@@ -401,6 +423,12 @@ def main():
         logger.info("Dashboard durch Benutzer gestoppt")
     except Exception as e:
         logger.error(f"Dashboard-Start fehlgeschlagen: {e}")
+        print(f"\n❌ FEHLER beim Dashboard-Start: {e}")
+        print("\n🔧 MÖGLICHE LÖSUNGEN:")
+        print("1. Prüfe ob alle Dependencies installiert sind:")
+        print("   pip install -r requirements.txt")
+        print("2. Prüfe ob config.json existiert")
+        print("3. Prüfe ob .env-Datei konfiguriert ist")
         sys.exit(1)
 
 if __name__ == '__main__':
