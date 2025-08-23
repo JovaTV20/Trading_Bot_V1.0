@@ -472,45 +472,61 @@ function displayResults(results) {
 function displayMetrics(results) {
     const metricsGrid = document.getElementById('metrics-grid');
     
+    // Berechne zusätzliche Metriken
+    const totalTrades = results.total_trades || 0;
+    const winningTrades = results.winning_trades || 0;
+    const losingTrades = results.losing_trades || 0;
+    const neutralTrades = results.neutral_trades || 0;
+    
+    // Realistischer Profit Factor
+    let profitFactor = results.profit_factor || 0;
+    let profitFactorText = profitFactor.toFixed(2);
+    
+    if (profitFactor >= 99) {
+        profitFactorText = "99+"; // Zeige 99+ statt 999.99
+    } else if (profitFactor <= 0.01) {
+        profitFactorText = "0.01";
+    }
+    
     const metrics = [
         {
             label: 'Gesamt-Rendite',
-            value: formatPercentage(results.total_return),
-            class: results.total_return >= 0 ? 'text-success' : 'text-danger'
+            value: formatPercentage(results.total_return || 0),
+            class: (results.total_return || 0) >= 0 ? 'text-success' : 'text-danger'
         },
         {
             label: 'Endkapital',
-            value: formatCurrency(results.final_capital),
-            class: results.final_capital >= results.initial_capital ? 'text-success' : 'text-danger'
+            value: formatCurrency(results.final_capital || 0),
+            class: (results.final_capital || 0) >= (results.initial_capital || 0) ? 'text-success' : 'text-danger'
         },
         {
             label: 'Max Drawdown',
-            value: formatPercentage(-Math.abs(results.max_drawdown)),
+            value: formatPercentage(-(results.max_drawdown || 0)),
             class: 'text-danger'
         },
         {
             label: 'Sharpe Ratio',
-            value: results.sharpe_ratio.toFixed(2),
-            class: results.sharpe_ratio > 1 ? 'text-success' : results.sharpe_ratio > 0 ? 'text-warning' : 'text-danger'
+            value: (results.sharpe_ratio || 0).toFixed(2),
+            class: (results.sharpe_ratio || 0) > 1 ? 'text-success' : (results.sharpe_ratio || 0) > 0 ? 'text-warning' : 'text-danger'
         },
         {
             label: 'Anzahl Trades',
-            value: results.total_trades,
+            value: `${totalTrades} (${winningTrades}W/${losingTrades}L/${neutralTrades}N)`,
             class: 'text-muted'
         },
         {
             label: 'Gewinnrate',
-            value: formatPercentage(results.win_rate),
-            class: results.win_rate > 0.5 ? 'text-success' : 'text-warning'
+            value: formatPercentage(results.win_rate || 0),
+            class: (results.win_rate || 0) > 0.5 ? 'text-success' : 'text-warning'
         },
         {
             label: 'Profit Factor',
-            value: results.profit_factor === Infinity ? '∞' : results.profit_factor.toFixed(2),
-            class: results.profit_factor > 1 ? 'text-success' : 'text-danger'
+            value: profitFactorText,
+            class: profitFactor > 2 ? 'text-success' : profitFactor > 1 ? 'text-warning' : 'text-danger'
         },
         {
             label: 'Gesamt-Kommission',
-            value: formatCurrency(results.total_commission),
+            value: formatCurrency(results.total_commission || 0),
             class: 'text-muted'
         }
     ];
@@ -522,12 +538,16 @@ function displayMetrics(results) {
         </div>
     `).join('');
     
-    // Trade-spezifische Metriken aktualisieren
-    document.getElementById('winning-trades').textContent = results.winning_trades || 0;
-    document.getElementById('losing-trades').textContent = results.losing_trades || 0;
+    // KORRIGIERT: Update separate Trade-Metriken
+    document.getElementById('winning-trades').textContent = winningTrades;
+    document.getElementById('losing-trades').textContent = losingTrades;
     document.getElementById('avg-win').textContent = formatCurrency(results.avg_win || 0);
     document.getElementById('avg-loss').textContent = formatCurrency(results.avg_loss || 0);
-    document.getElementById('max-drawdown-detailed').textContent = formatPercentage(-Math.abs(results.max_drawdown));
+    
+    // Zusätzliche Details falls verfügbar
+    if (results.debug_info) {
+        console.log('Debug Info:', results.debug_info);
+    }
 }
 
 function createEquityCurve(results) {
