@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Fehler - TradingBot{% endblock %}
+{% block header_title %}❌ Fehler aufgetreten{% endblock %}
+{% block header_subtitle %}Ein Problem wurde erkannt{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">⚠️ Fehlermeldung</div>
+    
+    <div class="alert alert-error">
+        <strong>Fehler:</strong> {{ error }}
+    </div>
+    
+    <div style="margin-top: 2rem;">
+        <h3>Mögliche Lösungen:</h3>
+        <ul style="margin-left: 2rem; margin-top: 1rem;">
+            <li>Prüfen Sie Ihre API-Credentials in der .env Datei</li>
+            <li>Stellen Sie sicher, dass alle Dependencies installiert sind</li>
+            <li>Überprüfen Sie die Internetverbindung</li>
+            <li>Kontrollieren Sie die Log-Dateien für weitere Details</li>
+        </ul>
+    </div>
+    
+    <div style="margin-top: 2rem;">
+        <a href="/" class="btn btn-primary">Zurück zum Dashboard</a>
+        <button onclick="window.location.reload()" class="btn btn-success" style="margin-left: 1rem;">
+            🔄 Seite neu laden
+        </button>
+    </div>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 """
-TradingBot Dashboard - Flask Web Interface
+TradingBot Dashboard - Flask Web Interface (KORRIGIERT)
 Zeigt Live-Performance, Trades und System-Status
 """
 
@@ -12,12 +12,18 @@ from pathlib import Path
 # Füge das Projekt-Root-Verzeichnis zum Python-Path hinzu
 sys.path.append(str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request
 import pandas as pd
-import plotly
-import plotly.graph_objs as go
-import plotly.express as px
-from plotly.utils import PlotlyJSONEncoder
+
+# Plotly nur importieren wenn verfügbar
+try:
+    import plotly
+    import plotly.graph_objs as go
+    import plotly.express as px
+    from plotly.utils import PlotlyJSONEncoder
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 from core.controller import TradingController
 from core.logger import setup_logger, get_logger
@@ -25,6 +31,13 @@ from core.logger import setup_logger, get_logger
 # Flask App initialisieren
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
+
+# CORS Support falls erforderlich
+try:
+    from flask_cors import CORS
+    CORS(app)
+except ImportError:
+    pass  # CORS optional
 
 # Logger
 logger = get_logger('Dashboard')
@@ -38,7 +51,7 @@ def load_config():
     global config
     try:
         config_path = Path(__file__).parent.parent / 'config.json'
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
         return True
     except Exception as e:
@@ -275,9 +288,11 @@ def api_backtest():
         if 'trades' in results:
             for trade in results['trades']:
                 if 'entry_time' in trade and trade['entry_time']:
-                    trade['entry_time'] = trade['entry_time'].isoformat()
+                    if hasattr(trade['entry_time'], 'isoformat'):
+                        trade['entry_time'] = trade['entry_time'].isoformat()
                 if 'exit_time' in trade and trade['exit_time']:
-                    trade['exit_time'] = trade['exit_time'].isoformat()
+                    if hasattr(trade['exit_time'], 'isoformat'):
+                        trade['exit_time'] = trade['exit_time'].isoformat()
         
         return jsonify(results)
     
@@ -323,7 +338,15 @@ def internal_error(error):
     logger.error(f"Server-Fehler: {error}")
     return render_template('error.html', error='Interner Server-Fehler'), 500
 
-# Template-Funktionen
+# Template-Filter (Jinja2)
+@app.template_filter('tojsonfilter')
+def to_json_filter(obj):
+    """Konvertiert Python-Objekt zu JSON für Templates"""
+    try:
+        return json.dumps(obj)
+    except (TypeError, ValueError):
+        return '{}'
+
 @app.template_filter('datetime')
 def datetime_filter(timestamp):
     """Template-Filter für Datum/Zeit-Formatierung"""
@@ -354,7 +377,8 @@ def percentage_filter(value):
     except:
         return str(value)
 
-if __name__ == '__main__':
+def main():
+    """Hauptfunktion für CLI-Start"""
     # Initialisiere Logger
     setup_logger()
     
@@ -378,3 +402,6 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(f"Dashboard-Start fehlgeschlagen: {e}")
         sys.exit(1)
+
+if __name__ == '__main__':
+    main()

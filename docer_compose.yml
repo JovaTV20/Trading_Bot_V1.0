@@ -24,7 +24,7 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/api/status')"]
+      test: ["CMD", "python", "-c", "import sys; sys.path.append('/app'); from core.controller import TradingController; import json; config=json.load(open('config.json')); controller=TradingController(config); status=controller.get_status(); exit(0 if status.get('is_running') else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -79,7 +79,6 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - tradingbot-network
     ports:
@@ -101,26 +100,10 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     networks:
       - tradingbot-network
     depends_on:
       - postgres
-
-  # Log Aggregation mit Loki (optional)
-  loki:
-    image: grafana/loki:latest
-    container_name: tradingbot-loki
-    restart: unless-stopped
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
-      - loki-data:/loki
-    networks:
-      - tradingbot-network
-    command: -config.file=/etc/loki/local-config.yaml
 
   # Backup Service (täglich)
   backup:
@@ -161,39 +144,3 @@ volumes:
     name: tradingbot-redis-data
   grafana-data:
     name: tradingbot-grafana-data
-  loki-data:
-    name: tradingbot-loki-data
-
-# Zusätzliche Services für Production
-x-production-overrides:
-  tradingbot: &production-tradingbot
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
-      restart_policy:
-        condition: on-failure
-        delay: 30s
-        max_attempts: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# Development Override
-# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
-x-development-overrides:
-  tradingbot: &development-tradingbot
-    volumes:
-      - .:/app
-      - /app/venv
-    environment:
-      - LOG_LEVEL=DEBUG
-      - FLASK_ENV=development
-    command: ["python", "main.py", "--mode", "backtest", "--symbol", "AAPL"]

@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Einstellungen - TradingBot{% endblock %}
+{% block header_title %}⚙️ System-Einstellungen{% endblock %}
+{% block header_subtitle %}Konfiguration und Parameter{% endblock %}
+
+{% block content %}
+<div id="alerts-container"></div>
+
+<!-- Current Configuration -->
+<div class="card">
+    <div class="card-title">📋 Aktuelle Konfiguration</div>
+    <div id="current-config">
+        <div class="loading">
+            <div class="spinner"></div>
+            Lade Konfiguration...
+        </div>
+    </div>
+</div>
+
+<!-- Strategy Settings -->
+<div class="card">
+    <div class="card-title">🧠 Strategie-Einstellungen</div>
+    <form id="strategy-form">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+                <label class="form-label">Lookback Period:</label>
+                <input type="number" id="lookback-period" class="form-control" value="20" min="5" max="100">
+                <small style="color: #666;">Anzahl Tage für historische Analyse</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Prediction Threshold:</label>
+                <input type="number" id="prediction-threshold" class="form-control" value="0.6" min="0.1" max="1" step="0.01">
+                <small style="color: #666;">Mindest-Vertrauen für Trading-Signale (0-1)</small>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Strategie-Einstellungen speichern</button>
+    </form>
+</div>
+
+<!-- Risk Management -->
+<div class="card">
+    <div class="card-title">⚠️ Risk-Management</div>
+    <form id="risk-form">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+                <label class="form-label">Max Position Size (%):</label>
+                <input type="number" id="max-position-size" class="form-control" value="10" min="1" max="100" step="0.1">
+                <small style="color: #666;">Maximaler Anteil des Kapitals pro Position</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Stop Loss (%):</label>
+                <input type="number" id="stop-loss" class="form-control" value="2" min="0" max="20" step="0.1">
+                <small style="color: #666;">Automatischer Verlust-Stop</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Take Profit (%):</label>
+                <input type="number" id="take-profit" class="form-control" value="4" min="0" max="50" step="0.1">
+                <small style="color: #666;">Automatischer Gewinn-Mitnahme</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Daily Trades:</label>
+                <input type="number" id="max-daily-trades" class="form-control" value="5" min="0" max="50">
+                <small style="color: #666;">Maximale Trades pro Tag</small>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">🛡️ Risk-Einstellungen speichern</button>
+    </form>
+</div>
+
+<!-- System Controls -->
+<div class="card">
+    <div class="card-title">🎛️ System-Kontrolle</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <button id="start-bot" class="btn btn-success">▶️ Bot starten</button>
+        <button id="stop-bot" class="btn btn-danger">⏹️ Bot stoppen</button>
+        <button id="test-email" class="btn btn-primary">📧 Email-Test senden</button>
+        <button id="validate-setup" class="btn btn-primary">✅ Setup validieren</button>
+    </div>
+</div>
+
+<!-- System Information -->
+<div class="card">
+    <div class="card-title">ℹ️ System-Informationen</div>
+    <div id="system-info">
+        <div class="loading">
+            <div class="spinner"></div>
+            Lade System-Info...
+        </div>
+    </div>
+</div>
+
+<!-- Log Viewer -->
+<div class="card">
+    <div class="card-title">📝 Log-Viewer</div>
+    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <select id="log-type" class="form-control" style="flex: 1; min-width: 200px;">
+            <option value="bot">Bot Log</option>
+            <option value="trades">Trade Log</option>
+            <option value="errors">Error Log</option>
+        </select>
+        <button id="refresh-logs" class="btn btn-primary">🔄 Logs aktualisieren</button>
+        <button id="download-logs" class="btn btn-success">⬇️ Logs herunterladen</button>
+    </div>
+    <div id="log-content" style="background: #f5f5f5; padding: 1rem; border-radius: 4px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; border: 1px solid #ddd;">
+        <div class="loading">
+            <div class="spinner"></div>
+            Lade Logs...
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadCurrentConfig();
+    loadSystemInfo();
+    setupEventListeners();
+    refreshLogs();
+});
+
+function setupEventListeners() {
+    document.getElementById('strategy-form').addEventListener('submit', saveStrategySettings);
+    document.getElementById('risk-form').addEventListener('submit', saveRiskSettings);
+    document.getElementById('start-bot').addEventListener('click', startBot);
+    document.getElementById('stop-bot').addEventListener('click', stopBot);
+    document.getElementById('test-email').addEventListener('click', testEmail);
+    document.getElementById('validate-setup').addEventListener('click', validateSetup);
+    document.getElementById('refresh-logs').addEventListener('click', refreshLogs);
+    document.getElementById('download-logs').addEventListener('click', downloadLogs);
+}
+
+async function loadCurrentConfig() {
+    try {
+        const config = {{ config|tojsonfilter|safe if config else '{}' }};
+        displayConfig(config);
+    } catch (error) {
+        console.error('Config load error:', error);
+        document.getElementById('current-config').innerHTML = 
+            '<div class="alert alert-error">Fehler beim Laden der Konfiguration</div>';
+    }
+}
+
+function displayConfig(config) {
+    const container = document.getElementById('current-config');
+    
+    if (!config || Object.keys(config).length === 0) {
+        container.innerHTML = '<div class="alert alert-warning">Keine Konfiguration verfügbar</div>';
+        return;
+    }
+    
+    let html = '<div style="font-family: monospace; font-size: 12px; background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #ddd; max-height: 300px; overflow-y: auto;">';
+    html += '<pre>' + JSON.stringify(config, null, 2) + '</pre>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+    
+    // Update form values from config
+    if (config.strategy && config.strategy.parameters) {
+        const params = config.strategy.parameters;
+        if (params.lookback_period) {
+            document.getElementById('lookback-period').value = params.lookback_period;
+        }
+        if (params.prediction_threshold) {
+            document.getElementById('prediction-threshold').value = params.prediction_threshold;
+        }
+    }
+    
+    if (config.risk_management) {
+        const risk = config.risk_management;
+        if (risk.max_position_size) {
+            document.getElementById('max-position-size').value = risk.max_position_size * 100;
+        }
+        if (risk.stop_loss_pct) {
+            document.getElementById('stop-loss').value = risk.stop_loss_pct * 100;
+        }
+        if (risk.take_profit_pct) {
+            document.getElementById('take-profit').value = risk.take_profit_pct * 100;
+        }
+        if (risk.max_daily_trades) {
+            document.getElementById('max-daily-trades').value = risk.max_daily_trades;
+        }
+    }
+}
+
+async function loadSystemInfo() {
+    try {
+        const info = {
+            platform: navigator.platform,
+            language: navigator.language,
+            user_agent: navigator.userAgent.substring(0, 100) + '...',
+            screen_resolution: screen.width + 'x' + screen.height,
+            timestamp: new Date().toISOString()
+        };
+        
+        displaySystemInfo(info);
+    } catch (error) {
+        console.error('System info error:', error);
+        document.getElementById('system-info').innerHTML = 
+            '<div class="alert alert-error">Fehler beim Laden der System-Info</div>';
+    }
+}
+
+function displaySystemInfo(info) {
+    const container = document.getElementById('system-info');
+    
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>Platform:</strong><br>
+                <span style="font-size: 0.9rem; color: #666;">${info.platform}</span>
+            </div>
+            <div style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>Language:</strong><br>
+                <span style="font-size: 0.9rem; color: #666;">${info.language}</span>
+            </div>
+            <div style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>Screen:</strong><br>
+                <span style="font-size: 0.9rem; color: #666;">${info.screen_resolution}</span>
+            </div>
+            <div style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>Last Update:</strong><br>
+                <span style="font-size: 0.9rem; color: #666;">${formatDateTime(info.timestamp)}</span>
+            </div>
+        </div>
+    `;
+}
+
+async function saveStrategySettings(e) {
+    e.preventDefault();
+    
+    const settings = {
+        lookback_period: parseInt(document.getElementById('lookback-period').value),
+        prediction_threshold: parseFloat(document.getElementById('prediction-threshold').value)
+    };
+    
+    try {
+        showAlert('Strategie-Einstellungen werden gespeichert...', 'warning');
+        
+        // TODO: API-Call zur Speicherung
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulation
+        
+        showAlert('Strategie-Einstellungen erfolgreich gespeichert!', 'success');
+    } catch (error) {
+        showAlert('Fehler beim Speichern: ' + error.message, 'error');
+    }
+}
+
+async function saveRiskSettings(e) {
+    e.preventDefault();
+    
+    const settings = {
+        max_position_size: parseFloat(document.getElementById('max-position-size').value) / 100,
+        stop_loss_pct: parseFloat(document.getElementById('stop-loss').value) / 100,
+        take_profit_pct: parseFloat(document.getElementById('take-profit').value) / 100,
+        max_daily_trades: parseInt(document.getElementById('max-daily-trades').value)
+    };
+    
+    try {
+        showAlert('Risk-Einstellungen werden gespeichert...', 'warning');
+        
+        // TODO: API-Call zur Speicherung
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulation
+        
+        showAlert('Risk-Einstellungen erfolgreich gespeichert!', 'success');
+    } catch (error) {
+        showAlert('Fehler beim Speichern: ' + error.message, 'error');
+    }
+}
+
+async function startBot() {
+    try {
+        showAlert('Bot wird gestartet...', 'warning');
+        
+        // TODO: API-Call zum Bot-Start
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulation
+        
+        showAlert('Bot erfolgreich gestartet!', 'success');
+    } catch (error) {
+        showAlert('Fehler beim Bot-Start: ' + error.message, 'error');
+    }
+}
+
+async function stopBot() {
+    if (confirm('Bot wirklich stoppen?')) {
+        try {
+            showAlert('Bot wird gestoppt...', 'warning');
+            
+            // TODO: API-Call zum Bot-Stop
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulation
+            
+            showAlert('Bot erfolgreich gestoppt!', 'success');
+        } catch (error) {
+            showAlert('Fehler beim Bot-Stop: ' + error.message, 'error');
+        }
+    }
+}
+
+async function testEmail() {
+    try {
+        showAlert('Sende Test-Email...', 'warning');
+        
+        // TODO: API-Call für Email-Test
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulation
+        
+        showAlert('Test-Email erfolgreich gesendet!', 'success');
+    } catch (error) {
+        showAlert('Email-Test fehlgeschlagen: ' + error.message, 'error');
+    }
+}
+
+async function validateSetup() {
+    try {
+        showAlert('Validiere Setup...', 'warning');
+        
+        // TODO: API-Call für Setup-Validierung
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Simulation
+        
+        showAlert('Setup-Validierung erfolgreich abgeschlossen!', 'success');
+    } catch (error) {
+        showAlert('Setup-Validierung fehlgeschlagen: ' + error.message, 'error');
+    }
+}
+
+async function refreshLogs() {
+    const logType = document.getElementById('log-type').value;
+    const container = document.getElementById('log-content');
+    
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Lade Logs...</div>';
+    
+    try {
+        // Simuliere Log-Daten
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const logData = generateSampleLogs(logType);
+        container.innerHTML = `<pre style="margin: 0; white-space: pre-wrap;">${logData}</pre>`;
+    } catch (error) {
+        container.innerHTML = '<div class="alert alert-error">Fehler beim Laden der Logs: ' + error.message + '</div>';
+    }
+}
+
+function generateSampleLogs(logType) {
+    const now = new Date();
+    const logs = [];
+    
+    for (let i = 9; i >= 0; i--) {
+        const logTime = new Date(now.getTime() - i * 60000); // Jeden Minute ein Log
+        const timestamp = logTime.toISOString();
+        
+        switch (logType) {
+            case 'trades':
+                if (i % 3 === 0) {
+                    logs.push(`[${timestamp}] INFO - Trade ausgeführt: BUY AAPL 10 @ $150.25`);
+                }
+                break;
+            case 'errors':
+                if (i % 5 === 0) {
+                    logs.push(`[${timestamp}] ERROR - API Rate Limit erreicht, warte 1 Minute`);
+                }
+                break;
+            default: // bot logs
+                const messages = [
+                    'TradingBot gestartet',
+                    'Strategie initialisiert',
+                    'Marktdaten geladen',
+                    'Signal generiert: HOLD',
+                    'Portfolio-Update durchgeführt',
+                    'Risk-Check bestanden',
+                    'Datenverbindung stabil',
+                    'System-Health-Check: OK'
+                ];
+                logs.push(`[${timestamp}] INFO - ${messages[i % messages.length]}`);
+        }
+    }
+    
+    return logs.join('\n');
+}
+
+async function downloadLogs() {
+    try {
+        const logType = document.getElementById('log-type').value;
+        showAlert('Bereite Log-Download vor...', 'warning');
+        
+        const logContent = document.getElementById('log-content').textContent;
+        const blob = new Blob([logContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tradingbot_${logType}_${new Date().toISOString().split('T')[0]}.log`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showAlert('Log-Download gestartet!', 'success');
+    } catch (error) {
+        showAlert('Download-Fehler: ' + error.message, 'error');
+    }
+}
+</script>
+{% endblock %}

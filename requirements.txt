@@ -27,6 +27,10 @@ requests>=2.31.0
 schedule>=1.2.0
 pytz>=2023.3
 
-# Development & Testing
+# Development & Testing (Optional)
 pytest>=7.4.0
 pytest-cov>=4.1.0
+
+# Formatting Tools (Optional)
+black>=23.0.0
+flake8>=6.0.0

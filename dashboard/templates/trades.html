@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Trades - TradingBot{% endblock %}
+{% block header_title %}📈 Trade-Historie{% endblock %}
+{% block header_subtitle %}Alle ausgeführten Trades und Orders{% endblock %}
+
+{% block content %}
+<div id="alerts-container"></div>
+
+<!-- Filter Controls -->
+<div class="card">
+    <div class="card-title">📊 Filter & Optionen</div>
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">Status:</label>
+            <select id="status-filter" class="form-control">
+                <option value="all">Alle</option>
+                <option value="filled">Ausgeführt</option>
+                <option value="pending">Ausstehend</option>
+                <option value="canceled">Storniert</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Zeitraum:</label>
+            <select id="period-filter" class="form-control">
+                <option value="1">Heute</option>
+                <option value="7">7 Tage</option>
+                <option value="30">30 Tage</option>
+                <option value="all">Alle</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Symbol:</label>
+            <input type="text" id="symbol-filter" class="form-control" placeholder="z.B. AAPL">
+        </div>
+        <div class="form-group">
+            <button id="apply-filters" class="btn btn-primary">Filter anwenden</button>
+            <button id="refresh-trades" class="btn btn-success">🔄 Aktualisieren</button>
+        </div>
+    </div>
+</div>
+
+<!-- Trades Table -->
+<div class="card">
+    <div class="card-title">📋 Trade-Liste</div>
+    <div id="trades-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            Lade Trades...
+        </div>
+    </div>
+</div>
+
+<!-- Trade Statistics -->
+<div class="card">
+    <div class="card-title">📊 Trade-Statistiken</div>
+    <div id="trade-stats">
+        <div class="loading">
+            <div class="spinner"></div>
+            Berechne Statistiken...
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTrades = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTrades();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('apply-filters').addEventListener('click', applyFilters);
+    document.getElementById('refresh-trades').addEventListener('click', loadTrades);
+}
+
+async function loadTrades() {
+    showLoading('trades-container');
+    showLoading('trade-stats');
+    
+    try {
+        const response = await apiCall('/api/trades?limit=100');
+        currentTrades = response.trades || [];
+        
+        displayTrades(currentTrades);
+        calculateStatistics(currentTrades);
+        
+    } catch (error) {
+        document.getElementById('trades-container').innerHTML = 
+            '<div class="alert alert-error">Fehler beim Laden der Trades: ' + error.message + '</div>';
+    }
+}
+
+function displayTrades(trades) {
+    const container = document.getElementById('trades-container');
+    
+    if (!trades || trades.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;">Keine Trades vorhanden</div>';
+        return;
+    }
+    
+    let html = `
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #f8f9fa;">
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Zeit</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Symbol</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Seite</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Menge</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Preis</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Wert</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    trades.forEach(trade => {
+        const sideClass = trade.side === 'buy' ? 'text-success' : 'text-danger';
+        const statusClass = getStatusClass(trade.status);
+        
+        html += `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 0.75rem;">${formatDateTime(trade.timestamp)}</td>
+                <td style="padding: 0.75rem;"><strong>${trade.symbol}</strong></td>
+                <td style="padding: 0.75rem;" class="${sideClass}">
+                    <strong>${trade.side.toUpperCase()}</strong>
+                </td>
+                <td style="padding: 0.75rem;">${trade.quantity}</td>
+                <td style="padding: 0.75rem;">${formatCurrency(trade.filled_avg_price || trade.price || 0)}</td>
+                <td style="padding: 0.75rem;">${formatCurrency((trade.filled_avg_price || trade.price || 0) * trade.quantity)}</td>
+                <td style="padding: 0.75rem;" class="${statusClass}">
+                    ${getStatusText(trade.status)}
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function calculateStatistics(trades) {
+    const container = document.getElementById('trade-stats');
+    
+    const totalTrades = trades.length;
+    const buyTrades = trades.filter(t => t.side === 'buy').length;
+    const sellTrades = trades.filter(t => t.side === 'sell').length;
+    const filledTrades = trades.filter(t => t.status === 'filled');
+    
+    const totalVolume = filledTrades.reduce((sum, trade) => 
+        sum + ((trade.filled_avg_price || trade.price || 0) * trade.quantity), 0);
+    
+    const symbols = [...new Set(trades.map(t => t.symbol))];
+    
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="metric-card">
+                <div class="metric-label">Gesamt-Trades</div>
+                <div class="metric-value">${totalTrades}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Buy-Orders</div>
+                <div class="metric-value text-success">${buyTrades}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Sell-Orders</div>
+                <div class="metric-value text-danger">${sellTrades}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Ausgeführte Trades</div>
+                <div class="metric-value">${filledTrades.length}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Handelsvolumen</div>
+                <div class="metric-value">${formatCurrency(totalVolume)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Gehandelte Symbole</div>
+                <div class="metric-value">${symbols.length}</div>
+            </div>
+        </div>
+    `;
+}
+
+function applyFilters() {
+    const statusFilter = document.getElementById('status-filter').value;
+    const periodFilter = document.getElementById('period-filter').value;
+    const symbolFilter = document.getElementById('symbol-filter').value.toUpperCase();
+    
+    let filteredTrades = currentTrades;
+    
+    // Status Filter
+    if (statusFilter !== 'all') {
+        filteredTrades = filteredTrades.filter(trade => trade.status === statusFilter);
+    }
+    
+    // Symbol Filter
+    if (symbolFilter) {
+        filteredTrades = filteredTrades.filter(trade => trade.symbol.includes(symbolFilter));
+    }
+    
+    // Period Filter
+    if (periodFilter !== 'all') {
+        const days = parseInt(periodFilter);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        
+        filteredTrades = filteredTrades.filter(trade => 
+            new Date(trade.timestamp) >= cutoff
+        );
+    }
+    
+    displayTrades(filteredTrades);
+    calculateStatistics(filteredTrades);
+}
+
+function getStatusClass(status) {
+    const statusClasses = {
+        'filled': 'text-success',
+        'pending': 'text-warning',
+        'canceled': 'text-danger',
+        'rejected': 'text-danger',
+        'new': 'text-warning'
+    };
+    return statusClasses[status] || 'text-muted';
+}
+
+function getStatusText(status) {
+    const statusTexts = {
+        'filled': '✅ Ausgeführt',
+        'pending': '⏳ Ausstehend',
+        'canceled': '❌ Storniert',
+        'rejected': '❌ Abgelehnt',
+        'new': '🆕 Neu'
+    };
+    return statusTexts[status] || status;
+}
+</script>
+{% endblock %}
