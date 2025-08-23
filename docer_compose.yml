@@ -1,0 +1,199 @@
+# Docker Compose für TradingBot
+# Startet Bot mit Dashboard und optional Database
+
+version: '3.8'
+
+services:
+  # Haupt-TradingBot
+  tradingbot:
+    build: .
+    container_name: tradingbot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./config.json:/app/config.json:ro
+    networks:
+      - tradingbot-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/api/status')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Dashboard Service
+  dashboard:
+    build: .
+    container_name: tradingbot-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs:/app/logs:ro
+      - ./data:/app/data:ro
+      - ./config.json:/app/config.json:ro
+    networks:
+      - tradingbot-network
+    command: ["python", "dashboard/app.py"]
+    depends_on:
+      - tradingbot
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis für Caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: tradingbot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - tradingbot-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # PostgreSQL Database (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: tradingbot-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=tradingbot
+      - POSTGRES_USER=trader
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - tradingbot-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trader -d tradingbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Monitoring mit Grafana (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tradingbot-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - tradingbot-network
+    depends_on:
+      - postgres
+
+  # Log Aggregation mit Loki (optional)
+  loki:
+    image: grafana/loki:latest
+    container_name: tradingbot-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - tradingbot-network
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # Backup Service (täglich)
+  backup:
+    build: .
+    container_name: tradingbot-backup
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs:ro
+      - ./data:/app/data:ro
+      - ./backups:/app/backups
+    networks:
+      - tradingbot-network
+    depends_on:
+      - postgres
+    command: >
+      sh -c "while true; do
+        echo 'Creating backup...' &&
+        python -c 'from datetime import datetime; import os, shutil;
+        backup_dir = f\"/app/backups/backup_{datetime.now().strftime(\"%Y%m%d_%H%M%S\")}\";
+        os.makedirs(backup_dir, exist_ok=True);
+        shutil.copytree(\"/app/logs\", f\"{backup_dir}/logs\", dirs_exist_ok=True);
+        shutil.copytree(\"/app/data\", f\"{backup_dir}/data\", dirs_exist_ok=True);
+        print(f\"Backup created: {backup_dir}\")' &&
+        sleep 86400;
+      done"
+
+networks:
+  tradingbot-network:
+    driver: bridge
+    name: tradingbot
+
+volumes:
+  postgres-data:
+    name: tradingbot-postgres-data
+  redis-data:
+    name: tradingbot-redis-data
+  grafana-data:
+    name: tradingbot-grafana-data
+  loki-data:
+    name: tradingbot-loki-data
+
+# Zusätzliche Services für Production
+x-production-overrides:
+  tradingbot: &production-tradingbot
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Development Override
+# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+x-development-overrides:
+  tradingbot: &development-tradingbot
+    volumes:
+      - .:/app
+      - /app/venv
+    environment:
+      - LOG_LEVEL=DEBUG
+      - FLASK_ENV=development
+    command: ["python", "main.py", "--mode", "backtest", "--symbol", "AAPL"]

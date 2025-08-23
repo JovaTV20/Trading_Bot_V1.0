@@ -1,0 +1,255 @@
+# TradingBot Makefile
+# Vereinfacht häufige Entwicklungs- und Deployment-Aufgaben
+
+.PHONY: help setup install validate test backtest live dashboard clean logs docker
+
+# Default target
+help:
+	@echo "🤖 TradingBot - Verfügbare Kommandos:"
+	@echo ""
+	@echo "Setup & Installation:"
+	@echo "  make setup        - Komplette Ersteinrichtung"
+	@echo "  make install      - Dependencies installieren"
+	@echo "  make validate     - Setup validieren"
+	@echo ""
+	@echo "Trading:"
+	@echo "  make backtest     - Backtest mit Standard-Parametern"
+	@echo "  make live         - Live-Trading starten (Paper)"
+	@echo "  make dashboard    - Web-Dashboard starten"
+	@echo ""
+	@echo "Development:"
+	@echo "  make test         - Tests ausführen"
+	@echo "  make clean        - Temporäre Dateien löschen"
+	@echo "  make logs         - Logs anzeigen"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make docker-build - Docker Image bauen"
+	@echo "  make docker-run   - Docker Container starten"
+
+# Setup & Installation
+setup: install validate
+	@echo "✅ Setup abgeschlossen!"
+
+install:
+	@echo "📦 Installiere Dependencies..."
+	pip install -r requirements.txt
+	@if [ ! -f .env ]; then \
+		echo "📝 Erstelle .env aus Template..."; \
+		cp .env.template .env; \
+		echo "⚠️  WICHTIG: Bearbeite .env mit deinen API-Keys!"; \
+	fi
+	@mkdir -p logs data models
+	@echo "✅ Installation abgeschlossen!"
+
+validate:
+	@echo "🔍 Validiere Setup..."
+	python run_validation.py
+
+# Trading Operations
+backtest:
+	@echo "📊 Starte Backtest..."
+	python main.py --mode backtest --symbol AAPL --start-date 2023-01-01 --end-date 2024-01-01 --capital 10000
+
+backtest-custom:
+	@read -p "Symbol [AAPL]: " symbol; \
+	read -p "Startdatum [2023-01-01]: " start; \
+	read -p "Enddatum [2024-01-01]: " end; \
+	read -p "Startkapital [10000]: " capital; \
+	python main.py --mode backtest \
+		--symbol $${symbol:-AAPL} \
+		--start-date $${start:-2023-01-01} \
+		--end-date $${end:-2024-01-01} \
+		--capital $${capital:-10000}
+
+live:
+	@echo "🚀 Starte Live-Trading (Paper Mode)..."
+	@echo "⚠️  WICHTIG: Stelle sicher, dass ALPACA_BASE_URL auf paper-api zeigt!"
+	python main.py --mode live --symbol AAPL
+
+dashboard:
+	@echo "🌐 Starte Web-Dashboard..."
+	cd dashboard && python app.py
+
+# Development
+test:
+	@echo "🧪 Führe Tests aus..."
+	@if command -v pytest > /dev/null; then \
+		pytest tests/ -v --cov=core --cov=strategies --cov=utils; \
+	else \
+		echo "⚠️  pytest nicht installiert. Installiere Development-Dependencies:"; \
+		echo "   pip install pytest pytest-cov"; \
+	fi
+
+test-quick:
+	@echo "⚡ Quick Tests..."
+	python -c "from utils.validator import quick_validate_config; print('Config OK' if quick_validate_config() else 'Config ERROR')"
+	python -c "from data_providers.alpaca_data import AlpacaDataProvider; print('Alpaca OK' if AlpacaDataProvider({}).test_connection() else 'Alpaca ERROR')"
+
+# Maintenance
+clean:
+	@echo "🧹 Räume auf..."
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . -type f -name "*.pyo" -delete 2>/dev/null || true
+	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	rm -rf build/ dist/ .coverage htmlcov/ .pytest_cache/
+	@echo "✅ Aufgeräumt!"
+
+clean-logs:
+	@echo "🗑️ Lösche alte Logs..."
+	python -c "from core.logger import cleanup_old_logs; cleanup_old_logs(days=30)"
+	@echo "✅ Logs bereinigt!"
+
+logs:
+	@echo "📋 Aktuelle Logs:"
+	@if [ -f logs/bot.log ]; then \
+		echo "=== Bot Log (letzte 20 Zeilen) ==="; \
+		tail -n 20 logs/bot.log; \
+		echo ""; \
+	fi
+	@if [ -f logs/trades.log ]; then \
+		echo "=== Trade Log (letzte 10 Zeilen) ==="; \
+		tail -n 10 logs/trades.log; \
+		echo ""; \
+	fi
+	@if [ -f logs/errors.log ]; then \
+		echo "=== Error Log (letzte 5 Zeilen) ==="; \
+		tail -n 5 logs/errors.log; \
+	fi
+
+logs-follow:
+	@echo "👀 Live Logs (Strg+C zum Beenden)..."
+	tail -f logs/bot.log
+
+# Docker
+docker-build:
+	@echo "🐳 Baue Docker Image..."
+	docker build -t tradingbot:latest .
+
+docker-run:
+	@echo "🐳 Starte Docker Container..."
+	docker run -d \
+		--name tradingbot \
+		--env-file .env \
+		-v $(PWD)/logs:/app/logs \
+		-v $(PWD)/data:/app/data \
+		tradingbot:latest
+
+docker-stop:
+	@echo "⏹️ Stoppe Docker Container..."
+	docker stop tradingbot || true
+	docker rm tradingbot || true
+
+# Development Helpers
+format:
+	@echo "🎨 Formatiere Code..."
+	@if command -v black > /dev/null; then \
+		black . --line-length 100; \
+	else \
+		echo "⚠️  black nicht installiert: pip install black"; \
+	fi
+
+lint:
+	@echo "🔍 Linting..."
+	@if command -v flake8 > /dev/null; then \
+		flake8 . --max-line-length=100 --ignore=E203,W503; \
+	else \
+		echo "⚠️  flake8 nicht installiert: pip install flake8"; \
+	fi
+
+# Backup & Restore
+backup:
+	@echo "💾 Erstelle Backup..."
+	@mkdir -p backups
+	@DATE=$$(date +%Y%m%d_%H%M%S); \
+	tar -czf backups/tradingbot_backup_$$DATE.tar.gz \
+		--exclude=logs --exclude=__pycache__ --exclude=.git \
+		--exclude=backups --exclude=venv .
+	@echo "✅ Backup erstellt in backups/"
+
+# Quick Start für neue Nutzer
+quickstart:
+	@echo "🚀 TradingBot Quick Start"
+	@echo "========================"
+	@echo ""
+	@echo "1. Setup ausführen..."
+	@$(MAKE) setup
+	@echo ""
+	@echo "2. Validierung..."
+	@$(MAKE) validate
+	@echo ""
+	@echo "3. Test-Backtest..."
+	@$(MAKE) backtest
+	@echo ""
+	@echo "🎉 Quick Start abgeschlossen!"
+	@echo ""
+	@echo "Nächste Schritte:"
+	@echo "• Bearbeite .env mit deinen Alpaca API-Keys"
+	@echo "• Starte Dashboard: make dashboard"
+	@echo "• Live-Trading testen: make live"
+
+# Production Deployment
+deploy-systemd:
+	@echo "🚀 Erstelle Systemd Service..."
+	@USER=$$(whoami); \
+	WORKDIR=$$(pwd); \
+	echo "[Unit]"; \
+	echo "Description=TradingBot Service"; \
+	echo "After=network.target"; \
+	echo ""; \
+	echo "[Service]"; \
+	echo "Type=simple"; \
+	echo "User=$$USER"; \
+	echo "WorkingDirectory=$$WORKDIR"; \
+	echo "Environment=PATH=$$WORKDIR/venv/bin"; \
+	echo "ExecStart=$$WORKDIR/venv/bin/python main.py --mode live --symbol AAPL"; \
+	echo "Restart=always"; \
+	echo "RestartSec=10"; \
+	echo ""; \
+	echo "[Install]"; \
+	echo "WantedBy=multi-user.target" \
+	> tradingbot.service
+	@echo "✅ Service-Datei erstellt: tradingbot.service"
+	@echo ""
+	@echo "Installation:"
+	@echo "sudo cp tradingbot.service /etc/systemd/system/"
+	@echo "sudo systemctl enable tradingbot"
+	@echo "sudo systemctl start tradingbot"
+
+# Monitoring
+status:
+	@echo "📊 TradingBot Status"
+	@echo "==================="
+	@if pgrep -f "main.py" > /dev/null; then \
+		echo "🟢 Bot läuft (PID: $$(pgrep -f 'main.py'))"; \
+	else \
+		echo "🔴 Bot läuft nicht"; \
+	fi
+	@echo ""
+	@if [ -f logs/bot.log ]; then \
+		echo "📝 Letzte Log-Einträge:"; \
+		tail -n 3 logs/bot.log; \
+	fi
+
+# Safety Checks
+safety-check:
+	@echo "⚠️  Sicherheits-Check..."
+	@if grep -q "paper-api" .env 2>/dev/null; then \
+		echo "✅ Paper Trading aktiviert"; \
+	else \
+		echo "🚨 WARNUNG: Live Trading könnte aktiviert sein!"; \
+		echo "   Prüfe ALPACA_BASE_URL in .env"; \
+	fi
+	@echo ""
+	@python -c "import json; config=json.load(open('config.json')); print('✅ Max Position Size:', config['risk_management']['max_position_size']); print('✅ Stop Loss:', config['risk_management']['stop_loss_pct'])"
+
+# Version Information
+version:
+	@echo "TradingBot v1.0.0"
+	@python --version
+	@echo "Dependencies:"
+	@pip list | grep -E "(alpaca|pandas|scikit|flask)" 2>/dev/null || echo "Keine Trading-Dependencies gefunden"
+
+# All-in-One für CI/CD
+ci: install validate test
+	@echo "✅ CI Pipeline erfolgreich!"
