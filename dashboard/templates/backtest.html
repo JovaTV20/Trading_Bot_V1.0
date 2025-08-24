@@ -480,7 +480,7 @@ function displayMetrics(results) {
     
     // Realistischer Profit Factor
     let profitFactor = results.profit_factor || 0;
-    let profitFactorText = profitFactor.toFixed(2);
+    let profitFactorText = (profitFactor || 0).toFixed(2);
     
     if (profitFactor >= 99) {
         profitFactorText = "99+"; // Zeige 99+ statt 999.99

@@ -1,5 +1,5 @@
+# REPARIERT: docker-compose.yml (war: docer-compose.yml)
 # Docker Compose für TradingBot
-# Startet Bot mit Dashboard und optional Database
 
 version: '3.8'
 
@@ -50,7 +50,7 @@ services:
     depends_on:
       - tradingbot
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
