@@ -1,42 +1,75 @@
-# Trading & Data
-alpaca-trade-api>=3.0.0
-pandas>=2.0.0
-numpy>=1.24.0
-yfinance>=0.2.0
+# TradingBot Requirements - Enhanced for Intelligent ML Strategy
 
-# Machine Learning
-scikit-learn>=1.3.0
-ta>=0.10.0
-joblib>=1.3.0
+# Trading & Data
+alpaca-trade-api
+pandas
+numpy
+yfinance
+
+# Core Machine Learning
+scikit-learn
+ta
+joblib
+scipy
+imbalanced-learn
+
+# Advanced ML & Analytics
+xgboost
+lightgbm
+statsmodels
+numba
+bottleneck
+
+# Feature Engineering & Time Series
+ruptures
+tslearn
+arch
+pykalman
+
+# Technical Analysis Extended
+ta-lib
+empyrical
 
 # Visualization
-matplotlib>=3.7.0
-plotly>=5.15.0
+matplotlib
+plotly
+seaborn
 
 # Web Framework (Dashboard)
-flask>=2.3.0
-flask-cors>=4.0.0  # HINZUGEFÜGT: Behebt Import-Fehler
-dash>=2.11.0
+flask
+flask-cors
+dash
 
 # Configuration & Environment
-python-dotenv>=1.0.0
+python-dotenv
 
 # Email & Notifications
-secure-smtplib>=0.1.1
+secure-smtplib
 
 # Utilities
-requests>=2.31.0
-schedule>=1.2.0
-pytz>=2023.3
+requests
+schedule
+pytz
+psutil
+memory-profiler
 
 # Development & Testing (Optional)
-pytest>=7.4.0
-pytest-cov>=4.1.0
+pytest
+pytest-cov
 
 # Formatting Tools (Optional)
-black>=23.0.0
-flake8>=6.0.0
+black
+flake8
 
-# Additional Dependencies für Stabilität
-typing-extensions>=4.0.0
-pathlib2>=2.3.7  # Für Python < 3.6 Kompatibilität
+# Additional Dependencies
+typing-extensions
+pathlib2
+category-encoders
+feature-engine
+
+# Optional ML Tracking (Comment out if not needed)
+# mlflow
+# wandb
+
+# Portfolio Analytics (Optional)
+# pyfolio

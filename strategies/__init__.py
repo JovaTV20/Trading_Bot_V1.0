@@ -1,9 +1,8 @@
-# __init__.py für strategies/
 """
 Strategies Module
 Verschiedene Trading-Strategien
 """
 
-from .ml_strategy import MLStrategy
+from .ml_strategy import IntelligentMLStrategy
 
-__all__ = ['MLStrategy']
+__all__ = ['IntelligentMLStrategy']
