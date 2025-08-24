@@ -1,7 +1,7 @@
 """
 DATETIME FIX für core/backtester.py
 Problem: 'int' object has no attribute 'isoformat'
-Lösung: Sichere Timestamp-Konvertierung
+Lösung: Sichere Timestamp-Konvertierung + SHARPE RATIO Fix
 """
 
 import pandas as pd
@@ -472,7 +472,7 @@ class Backtester:
         return self._calculate_results(portfolio, symbol)
     
     def _calculate_results(self, portfolio: RealisticPortfolio, symbol: str) -> Dict[str, Any]:
-        """Ergebnisse mit sicherer Serialisierung"""
+        """Ergebnisse mit sicherer Serialisierung und SHARPE RATIO"""
         
         # Metriken berechnen
         final_equity = portfolio.equity_history[-1]['equity'] if portfolio.equity_history else portfolio.initial_capital
@@ -495,6 +495,33 @@ class Backtester:
         total_losses = abs(sum(t.pnl for t in losing_trades))
         profit_factor = total_wins / total_losses if total_losses > 0 else 99.9
         
+        # REPARIERT: SHARPE RATIO BERECHNUNG
+        sharpe_ratio = 0.0
+        if portfolio.equity_history and len(portfolio.equity_history) > 1:
+            try:
+                # Berechne täglich Returns aus Equity-Historie
+                equity_values = [entry['equity'] for entry in portfolio.equity_history]
+                daily_returns = []
+                
+                for i in range(1, len(equity_values)):
+                    if equity_values[i-1] > 0:
+                        daily_return = (equity_values[i] - equity_values[i-1]) / equity_values[i-1]
+                        daily_returns.append(daily_return)
+                
+                if len(daily_returns) > 1:
+                    mean_return = np.mean(daily_returns)
+                    std_return = np.std(daily_returns)
+                    
+                    if std_return > 0:
+                        # Annualisierte Sharpe Ratio (252 Trading-Tage)
+                        sharpe_ratio = (mean_return / std_return) * np.sqrt(252)
+                    else:
+                        sharpe_ratio = 0.0
+                
+            except Exception as e:
+                self.logger.warning(f"Sharpe-Ratio Berechnung fehlgeschlagen: {e}")
+                sharpe_ratio = 0.0
+        
         def safe_float(value):
             if value is None or np.isnan(value) or np.isinf(value):
                 return 0.0
@@ -503,7 +530,6 @@ class Backtester:
         # SICHERE Equity-Curve Serialisierung
         equity_df = pd.DataFrame(portfolio.equity_history) if portfolio.equity_history else pd.DataFrame()
         if not equity_df.empty:
-            # Stelle sicher, dass Timestamp-Index korrekt ist
             try:
                 equity_df.set_index('timestamp', inplace=True)
                 # Drawdown berechnen
@@ -516,13 +542,14 @@ class Backtester:
         if not equity_df.empty and 'drawdown' in equity_df.columns:
             max_drawdown = abs(equity_df['drawdown'].min())
         
-        # Ergebnisse
+        # Ergebnisse - REPARIERT mit allen erforderlichen Metriken
         results = {
             'initial_capital': safe_float(portfolio.initial_capital),
             'final_capital': safe_float(final_equity),
             'total_return': safe_float(total_return),
             'total_return_pct': safe_float(total_return * 100),
             'max_drawdown': safe_float(max_drawdown),
+            'sharpe_ratio': safe_float(sharpe_ratio),  # REPARIERT: Jetzt immer vorhanden
             
             'total_trades': total_trades,
             'winning_trades': win_count,
@@ -544,18 +571,23 @@ class Backtester:
             'trades': [t.to_dict() for t in all_trades],
             'equity_curve': equity_df,
             
+            # REPARIERT: Cash-Werte hinzugefügt
+            'final_cash': safe_float(portfolio.cash),
+            
             'backtest_info': {
                 'datetime_fix_applied': 'TRUE',
                 'strategy_name': self.strategy.__class__.__name__,
                 'avg_duration_days': round(avg_duration, 1),
-                'max_duration_expected': '15 days'
+                'sharpe_calculation': 'included',  # REPARIERT: Bestätigung
+                'total_equity_points': len(portfolio.equity_history)
             }
         }
         
         # Logging
-        self.logger.info(f"=== DATETIME-SICHERE ERGEBNISSE ===")
+        self.logger.info(f"=== REPARIERTE ERGEBNISSE ===")
         self.logger.info(f"Total Return: {results['total_return']:.2%}")
+        self.logger.info(f"Sharpe Ratio: {results['sharpe_ratio']:.3f}")  # REPARIERT: Logging
         self.logger.info(f"Trades: {total_trades} (Avg Duration: {avg_duration:.1f} Tage)")
         self.logger.info(f"Win Rate: {win_rate:.2%}")
         
-        return results  
+        return results
