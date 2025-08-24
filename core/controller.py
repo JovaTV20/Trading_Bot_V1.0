@@ -2490,4 +2490,1022 @@ STRATEGY: {getattr(self.strategy, '__class__', type(self.strategy)).__name__}
                     self.logger.warning(f"⚠️ Finaler Strategie-Save fehlgeschlagen: {e}")
             
         except Exception as e:
-            self.logger.warning(f
+            self.logger.warning(f"⚠️ Intelligent Live-Trading Cleanup fehlgeschlagen: {e}")
+    
+    # ERWEITERTE HILFSMETHODEN - VERVOLLSTÄNDIGUNG
+    
+    def _analyze_regime_performance(self, trades: List[Dict]) -> Dict[str, Any]:
+        """Analysiert Performance nach Markt-Regimes"""
+        try:
+            regime_performance = {}
+            
+            if not trades:
+                return regime_performance
+            
+            # Gruppiere Trades nach Regimes (falls verfügbar)
+            regime_trades = {}
+            
+            for trade in trades:
+                regime = trade.get('market_regime', 'unknown')
+                if regime not in regime_trades:
+                    regime_trades[regime] = []
+                regime_trades[regime].append(trade)
+            
+            # Berechne Performance pro Regime
+            for regime, regime_trade_list in regime_trades.items():
+                if regime_trade_list:
+                    total_pnl = sum(t.get('pnl', 0) for t in regime_trade_list)
+                    winning_trades = len([t for t in regime_trade_list if t.get('pnl', 0) > 0])
+                    total_trades = len(regime_trade_list)
+                    
+                    regime_performance[regime] = {
+                        'trades': total_trades,
+                        'total_pnl': total_pnl,
+                        'avg_pnl': total_pnl / total_trades if total_trades > 0 else 0,
+                        'win_rate': winning_trades / total_trades if total_trades > 0 else 0,
+                        'return': total_pnl / 10000 if total_pnl != 0 else 0  # Annahme: 10k Startkapital
+                    }
+            
+            return regime_performance
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Regime Performance Analysis fehlgeschlagen: {e}")
+            return {}
+    
+    def _count_adaptation_events(self) -> int:
+        """Zählt Adaptations-Events"""
+        try:
+            return self.strategy_performance.get('online_learning_updates', 0) + \
+                   self.strategy_performance.get('regime_changes', 0)
+        except:
+            return 0
+    
+    def _analyze_learning_curve(self) -> str:
+        """Analysiert Learning-Curve Trend"""
+        try:
+            if hasattr(self, 'confidence_performance_tracking') and len(self.confidence_performance_tracking) >= 20:
+                recent_performance = self.confidence_performance_tracking[-20:]
+                early_success = sum(1 for t in recent_performance[:10] if t['success']) / 10
+                late_success = sum(1 for t in recent_performance[-10:] if t['success']) / 10
+                
+                if late_success > early_success + 0.1:
+                    return 'improving'
+                elif late_success < early_success - 0.1:
+                    return 'declining'
+                else:
+                    return 'stable'
+            return 'insufficient_data'
+        except:
+            return 'unknown'
+    
+    def _detect_concept_drift(self) -> bool:
+        """Erkennt Concept Drift"""
+        try:
+            if hasattr(self, 'confidence_performance_tracking') and len(self.confidence_performance_tracking) >= 30:
+                recent = self.confidence_performance_tracking[-15:]
+                older = self.confidence_performance_tracking[-30:-15]
+                
+                recent_success = sum(1 for t in recent if t['success']) / len(recent)
+                older_success = sum(1 for t in older if t['success']) / len(older)
+                
+                return abs(recent_success - older_success) > 0.3
+            return False
+        except:
+            return False
+    
+    def _analyze_retrain_frequency(self) -> str:
+        """Analysiert optimale Retrain-Frequenz"""
+        try:
+            updates = self.strategy_performance.get('online_learning_updates', 0)
+            regime_changes = self.strategy_performance.get('regime_changes', 0)
+            
+            if updates > 50:
+                return 'high_frequency'
+            elif updates > 20:
+                return 'medium_frequency'
+            elif regime_changes > 5:
+                return 'regime_adaptive'
+            else:
+                return 'standard'
+        except:
+            return 'unknown'
+    
+    def _analyze_regime_transitions(self) -> Dict[str, Any]:
+        """Analysiert Regime-Übergänge"""
+        try:
+            if not hasattr(self, 'regime_history') or len(self.regime_history) < 2:
+                return {'transitions': 0, 'patterns': []}
+            
+            transitions = []
+            for i in range(1, len(self.regime_history)):
+                prev_regime = self.regime_history[i-1].get('new_regime', 
+                                                          self.regime_history[i-1].get('regime', 'unknown'))
+                curr_regime = self.regime_history[i].get('new_regime',
+                                                        self.regime_history[i].get('regime', 'unknown'))
+                if prev_regime != curr_regime:
+                    transitions.append(f"{prev_regime}->{curr_regime}")
+            
+            return {
+                'transitions': len(transitions),
+                'patterns': transitions[-5:],  # Letzte 5 Übergänge
+                'most_recent': transitions[-1] if transitions else 'none'
+            }
+        except:
+            return {'transitions': 0, 'patterns': []}
+    
+    def _calculate_adaptation_lag(self) -> float:
+        """Berechnet Anpassungslatenz"""
+        try:
+            if not hasattr(self, 'regime_history') or len(self.regime_history) < 2:
+                return 0.0
+            
+            # Vereinfachte Berechnung: Zeit zwischen Regime-Wechsel und Strategy-Anpassung
+            return 1.5  # Placeholder: ca. 1.5 Zyklen Latenz
+        except:
+            return 0.0
+    
+    def _evaluate_regime_predictions(self) -> float:
+        """Evaluiert Regime-Vorhersage-Genauigkeit"""
+        try:
+            # Placeholder für komplexere Regime-Prediction Evaluation
+            if hasattr(self.strategy, 'regime_confidence'):
+                return getattr(self.strategy, 'regime_confidence', 0.5)
+            return 0.5
+        except:
+            return 0.0
+    
+    def _analyze_cross_regime_stability(self, results: Dict[str, Any]) -> str:
+        """Analysiert Performance-Stabilität über Regimes"""
+        try:
+            if 'regime_analysis' not in results:
+                return 'unknown'
+            
+            regime_returns = []
+            for regime, perf in results['regime_analysis'].items():
+                if isinstance(perf, dict) and 'return' in perf:
+                    regime_returns.append(perf['return'])
+            
+            if not regime_returns:
+                return 'no_data'
+            
+            volatility = np.std(regime_returns) if len(regime_returns) > 1 else 0
+            
+            if volatility < 0.05:
+                return 'very_stable'
+            elif volatility < 0.1:
+                return 'stable'
+            elif volatility < 0.2:
+                return 'moderate'
+            else:
+                return 'unstable'
+        except:
+            return 'error'
+    
+    def _analyze_confidence_distribution(self, results: Dict[str, Any]) -> str:
+        """Analysiert Confidence-Verteilung"""
+        try:
+            trades = results.get('trades', [])
+            if not trades:
+                return 'no_data'
+            
+            confidences = [t.get('confidence', 0.5) for t in trades if 'confidence' in t]
+            if not confidences:
+                return 'no_confidence_data'
+            
+            mean_conf = np.mean(confidences)
+            std_conf = np.std(confidences)
+            
+            if std_conf < 0.1:
+                return 'narrow'
+            elif mean_conf > 0.7:
+                return 'high_confidence'
+            elif mean_conf < 0.4:
+                return 'low_confidence'
+            else:
+                return 'balanced'
+        except:
+            return 'error'
+    
+    def _correlate_confidence_accuracy(self, results: Dict[str, Any]) -> float:
+        """Korreliert Confidence mit Accuracy"""
+        try:
+            trades = results.get('trades', [])
+            if len(trades) < 10:
+                return 0.0
+            
+            confidences = []
+            successes = []
+            
+            for trade in trades:
+                if 'confidence' in trade and 'pnl' in trade:
+                    confidences.append(trade['confidence'])
+                    successes.append(1 if trade['pnl'] > 0 else 0)
+            
+            if len(confidences) >= 10:
+                return np.corrcoef(confidences, successes)[0, 1]
+            return 0.0
+        except:
+            return 0.0
+    
+    def _find_optimal_confidence_threshold(self, results: Dict[str, Any]) -> float:
+        """Findet optimalen Confidence-Threshold"""
+        try:
+            trades = results.get('trades', [])
+            if len(trades) < 20:
+                return self.strategy.prediction_threshold if hasattr(self.strategy, 'prediction_threshold') else 0.6
+            
+            # Teste verschiedene Thresholds
+            best_threshold = 0.6
+            best_performance = 0
+            
+            for threshold in np.arange(0.5, 0.9, 0.05):
+                filtered_trades = [t for t in trades if t.get('confidence', 0) >= threshold]
+                if len(filtered_trades) >= 5:
+                    success_rate = sum(1 for t in filtered_trades if t.get('pnl', 0) > 0) / len(filtered_trades)
+                    # Gewichte Success Rate mit Trade-Anzahl
+                    performance = success_rate * (len(filtered_trades) / len(trades))
+                    
+                    if performance > best_performance:
+                        best_performance = performance
+                        best_threshold = threshold
+            
+            return best_threshold
+        except:
+            return 0.6
+    
+    def _generate_calibration_curve(self, results: Dict[str, Any]) -> List[Dict]:
+        """Generiert Calibration-Curve Daten"""
+        try:
+            trades = results.get('trades', [])
+            if len(trades) < 20:
+                return []
+            
+            bins = np.linspace(0, 1, 11)  # 10 Bins
+            calibration_data = []
+            
+            for i in range(len(bins)-1):
+                bin_trades = [t for t in trades if bins[i] <= t.get('confidence', 0) < bins[i+1]]
+                if len(bin_trades) >= 3:
+                    bin_accuracy = sum(1 for t in bin_trades if t.get('pnl', 0) > 0) / len(bin_trades)
+                    calibration_data.append({
+                        'confidence_bin': (bins[i] + bins[i+1]) / 2,
+                        'actual_accuracy': bin_accuracy,
+                        'trade_count': len(bin_trades)
+                    })
+            
+            return calibration_data
+        except:
+            return []
+    
+    def _calculate_regime_adjusted_sharpe(self, results: Dict[str, Any]) -> float:
+        """Berechnet Regime-adjustierte Sharpe Ratio"""
+        try:
+            if 'regime_analysis' not in results:
+                return results.get('sharpe_ratio', 0)
+            
+            regime_sharpes = []
+            regime_analysis = results['regime_analysis']
+            
+            for regime, perf in regime_analysis.items():
+                if isinstance(perf, dict) and 'return' in perf and perf.get('trades', 0) > 5:
+                    # Vereinfachte Regime-Sharpe Berechnung
+                    regime_return = perf['return']
+                    # Annahme: Höhere Volatilität in Bear Markets
+                    vol_adjustment = 1.5 if 'bear' in regime.lower() else 1.0
+                    regime_sharpe = regime_return / (0.15 * vol_adjustment)  # Angenommene Volatilität
+                    regime_sharpes.append(regime_sharpe)
+            
+            if regime_sharpes:
+                return np.mean(regime_sharpes)
+            return results.get('sharpe_ratio', 0)
+        except:
+            return results.get('sharpe_ratio', 0)
+    
+    def _calculate_adaptive_drawdown(self, results: Dict[str, Any]) -> float:
+        """Berechnet adaptive Drawdown-Metrik"""
+        try:
+            base_dd = results.get('max_drawdown', 0)
+            
+            # Adjustiere für Regime-Diversifikation
+            if 'regime_analysis' in results:
+                regime_count = len([r for r in results['regime_analysis'].values() 
+                                  if isinstance(r, dict) and r.get('trades', 0) > 0])
+                diversification_factor = max(0.8, 1 - (regime_count - 1) * 0.1)
+                return base_dd * diversification_factor
+            
+            return base_dd
+        except:
+            return results.get('max_drawdown', 0)
+    
+    def _analyze_tail_risk_by_regime(self, results: Dict[str, Any]) -> Dict[str, float]:
+        """Analysiert Tail-Risk nach Regimes"""
+        try:
+            tail_risks = {}
+            
+            if 'regime_analysis' not in results:
+                return tail_risks
+            
+            for regime, perf in results['regime_analysis'].items():
+                if isinstance(perf, dict) and perf.get('trades', 0) > 10:
+                    # Vereinfachte Tail-Risk Berechnung basierend auf Win-Rate
+                    win_rate = perf.get('win_rate', 0.5)
+                    # Niedrige Win-Rate = höheres Tail-Risk
+                    tail_risk = max(0.01, 0.1 - win_rate * 0.15)
+                    tail_risks[regime] = tail_risk
+            
+            return tail_risks
+        except:
+            return {}
+    
+    def _calculate_dynamic_var(self, results: Dict[str, Any]) -> float:
+        """Berechnet dynamische Value-at-Risk"""
+        try:
+            trades = results.get('trades', [])
+            if len(trades) < 20:
+                return 0.05  # 5% Standard-VaR
+            
+            returns = [t.get('return_pct', 0) for t in trades if 'return_pct' in t]
+            if len(returns) >= 20:
+                # 95% VaR
+                var_95 = np.percentile(returns, 5)  # 5. Perzentil für 95% VaR
+                return abs(var_95)
+            
+            return 0.05
+        except:
+            return 0.05
+    
+    def _predict_next_regime(self) -> str:
+        """Vorhersage des nächsten Regimes"""
+        try:
+            if hasattr(self.strategy, 'market_regime'):
+                current_regime = self.strategy.market_regime
+                
+                # Einfache Regime-Transition-Logik
+                if current_regime == 'bull' and len(self.regime_history) > 2:
+                    return 'sideways'  # Bull oft gefolgt von Sideways
+                elif current_regime == 'bear':
+                    return 'bull'  # Bear oft gefolgt von Bull
+                elif current_regime == 'sideways':
+                    return 'bull'  # Sideways oft gefolgt von Bull
+                else:
+                    return 'unknown'
+            return 'unknown'
+        except:
+            return 'unknown'
+    
+    def _forecast_performance_metrics(self) -> str:
+        """Prognostiziert Performance-Entwicklung"""
+        try:
+            if hasattr(self, 'confidence_performance_tracking') and len(self.confidence_performance_tracking) >= 10:
+                recent_performance = self.confidence_performance_tracking[-10:]
+                success_trend = sum(1 for t in recent_performance if t['success']) / len(recent_performance)
+                
+                if success_trend > 0.7:
+                    return 'improving'
+                elif success_trend < 0.4:
+                    return 'declining'
+                else:
+                    return 'stable'
+            return 'insufficient_data'
+        except:
+            return 'unknown'
+    
+    def _recommend_strategy_adjustments(self, results: Dict[str, Any]) -> List[str]:
+        """Empfiehlt Strategie-Anpassungen"""
+        try:
+            recommendations = []
+            
+            # Performance-basierte Empfehlungen
+            if results.get('win_rate', 0) < 0.4:
+                recommendations.append('increase_confidence_threshold')
+            
+            if results.get('sharpe_ratio', 0) < 0.5:
+                recommendations.append('improve_risk_management')
+            
+            if results.get('max_drawdown', 0) > 0.15:
+                recommendations.append('reduce_position_sizes')
+            
+            # Regime-basierte Empfehlungen
+            if 'regime_analysis' in results:
+                regime_performance = results['regime_analysis']
+                poor_regimes = [r for r, p in regime_performance.items() 
+                              if isinstance(p, dict) and p.get('return', 0) < -0.05]
+                
+                if len(poor_regimes) > 1:
+                    recommendations.append('enhance_regime_adaptation')
+            
+            # Confidence-basierte Empfehlungen
+            confidence_correlation = self._correlate_confidence_accuracy(results)
+            if confidence_correlation < 0.3:
+                recommendations.append('recalibrate_confidence_model')
+            
+            return recommendations[:5]  # Max 5 Empfehlungen
+        except:
+            return ['monitor_performance']
+    
+    def _compare_predictions_reality(self, pre_analysis: Dict[str, Any], 
+                                   results: Dict[str, Any]) -> Dict[str, str]:
+        """Vergleicht Pre-Analysis Vorhersagen mit tatsächlichen Ergebnissen"""
+        try:
+            comparison = {}
+            
+            # Volatilitäts-Vorhersage vs Realität
+            predicted_vol = pre_analysis.get('volatility_analysis', {}).get('volatility_regime', 'normal')
+            actual_volatility = results.get('max_drawdown', 0)
+            
+            if predicted_vol == 'high' and actual_volatility > 0.1:
+                comparison['volatility_prediction'] = 'accurate'
+            elif predicted_vol == 'low' and actual_volatility < 0.05:
+                comparison['volatility_prediction'] = 'accurate'
+            else:
+                comparison['volatility_prediction'] = 'inaccurate'
+            
+            # Trend-Vorhersage vs Performance
+            predicted_trend = pre_analysis.get('trend_analysis', {}).get('overall_trend', 'unknown')
+            actual_return = results.get('total_return', 0)
+            
+            if ('up' in predicted_trend and actual_return > 0) or \
+               ('down' in predicted_trend and actual_return < 0):
+                comparison['trend_prediction'] = 'accurate'
+            else:
+                comparison['trend_prediction'] = 'mixed'
+            
+            return comparison
+        except:
+            return {'analysis': 'comparison_failed'}
+    
+    def _evaluate_regime_prediction_accuracy(self, pre_analysis: Dict[str, Any], 
+                                           results: Dict[str, Any]) -> float:
+        """Evaluiert Genauigkeit der Regime-Vorhersagen"""
+        try:
+            # Vereinfachte Berechnung basierend auf Ergebnissen
+            if 'regime_analysis' in results and 'market_regimes' in pre_analysis:
+                predicted_regimes = set(pre_analysis['market_regimes'].keys())
+                actual_regimes = set(results['regime_analysis'].keys())
+                
+                overlap = len(predicted_regimes.intersection(actual_regimes))
+                total = len(predicted_regimes.union(actual_regimes))
+                
+                return overlap / total if total > 0 else 0.0
+            return 0.5
+        except:
+            return 0.0
+    
+    def _evaluate_volatility_forecasts(self, pre_analysis: Dict[str, Any], 
+                                     data: pd.DataFrame) -> float:
+        """Evaluiert Volatilitäts-Prognosen"""
+        try:
+            if data.empty or 'volatility_analysis' not in pre_analysis:
+                return 0.5
+            
+            predicted_vol_regime = pre_analysis['volatility_analysis'].get('volatility_regime', 'normal')
+            
+            # Berechne tatsächliche Volatilität
+            returns = data['close'].pct_change().dropna()
+            actual_vol = returns.std() * np.sqrt(252)  # Annualisiert
+            
+            # Klassifiziere tatsächliche Volatilität
+            if actual_vol > 0.25:
+                actual_regime = 'high'
+            elif actual_vol < 0.15:
+                actual_regime = 'low'
+            else:
+                actual_regime = 'normal'
+            
+            return 1.0 if predicted_vol_regime == actual_regime else 0.0
+        except:
+            return 0.5
+    
+    def _adapt_parameters_from_results(self, results: Dict[str, Any]):
+        """Adaptiert Parameter basierend auf Backtest-Ergebnissen"""
+        try:
+            # Win-Rate basierte Anpassungen
+            win_rate = results.get('win_rate', 0.5)
+            
+            if hasattr(self.strategy, 'prediction_threshold'):
+                if win_rate < 0.4:
+                    # Erhöhe Threshold bei niedriger Win-Rate
+                    new_threshold = min(0.9, self.strategy.prediction_threshold * 1.05)
+                    self.strategy.prediction_threshold = new_threshold
+                    self.logger.info(f"🎯 Prediction Threshold erhöht auf {new_threshold:.3f}")
+                elif win_rate > 0.7:
+                    # Senke Threshold bei hoher Win-Rate für mehr Trades
+                    new_threshold = max(0.5, self.strategy.prediction_threshold * 0.98)
+                    self.strategy.prediction_threshold = new_threshold
+                    self.logger.info(f"🎯 Prediction Threshold gesenkt auf {new_threshold:.3f}")
+            
+            # Sharpe-Ratio basierte Anpassungen
+            sharpe = results.get('sharpe_ratio', 0)
+            if sharpe < 0.5 and 'risk_management' in self.config:
+                # Reduziere Position Size bei schlechter Sharpe
+                current_size = self.config['risk_management'].get('max_position_size', 0.1)
+                new_size = max(0.05, current_size * 0.9)
+                self.config['risk_management']['max_position_size'] = new_size
+                self.logger.info(f"📉 Max Position Size reduziert auf {new_size:.3f}")
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Parameter-Adaptation fehlgeschlagen: {e}")
+    
+    def _learn_regime_patterns(self, regime_analysis: Dict[str, Any]):
+        """Lernt aus Regime-Performance-Mustern"""
+        try:
+            for regime, performance in regime_analysis.items():
+                if isinstance(performance, dict):
+                    regime_return = performance.get('return', 0)
+                    regime_trades = performance.get('trades', 0)
+                    
+                    # Speichere Regime-Performance für zukünftige Anpassungen
+                    if not hasattr(self, 'regime_learning'):
+                        self.regime_learning = {}
+                    
+                    if regime not in self.regime_learning:
+                        self.regime_learning[regime] = {
+                            'performance_history': [],
+                            'avg_performance': 0.0
+                        }
+                    
+                    self.regime_learning[regime]['performance_history'].append(regime_return)
+                    
+                    # Halte nur letzte 10 Performances
+                    if len(self.regime_learning[regime]['performance_history']) > 10:
+                        self.regime_learning[regime]['performance_history'] = \
+                            self.regime_learning[regime]['performance_history'][-10:]
+                    
+                    # Update Average
+                    self.regime_learning[regime]['avg_performance'] = \
+                        np.mean(self.regime_learning[regime]['performance_history'])
+                    
+                    self.logger.debug(f"📚 Regime {regime} Learning: Avg Performance {self.regime_learning[regime]['avg_performance']:.3f}")
+                    
+        except Exception as e:
+            self.logger.warning(f"⚠️ Regime Pattern Learning fehlgeschlagen: {e}")
+    
+    def _analyze_training_data_quality(self, data: pd.DataFrame) -> Dict[str, Any]:
+        """Analysiert Trainingsdatenqualität"""
+        try:
+            analysis = {
+                'data_points': len(data),
+                'completeness': 1.0 - data.isnull().sum().sum() / (len(data) * len(data.columns)),
+                'date_range': {
+                    'start': data.index[0] if len(data) > 0 else None,
+                    'end': data.index[-1] if len(data) > 0 else None,
+                    'days': (data.index[-1] - data.index[0]).days if len(data) > 1 else 0
+                }
+            }
+            
+            # Volatilitäts-Analyse
+            if 'close' in data.columns:
+                returns = data['close'].pct_change().dropna()
+                analysis['volatility'] = {
+                    'mean': returns.std(),
+                    'regime': 'high' if returns.std() > 0.02 else 'low' if returns.std() < 0.01 else 'normal'
+                }
+            
+            # Trend-Analyse
+            if 'close' in data.columns and len(data) > 20:
+                price_change = (data['close'].iloc[-1] / data['close'].iloc[0] - 1)
+                analysis['trend'] = {
+                    'total_return': price_change,
+                    'direction': 'up' if price_change > 0.05 else 'down' if price_change < -0.05 else 'sideways'
+                }
+            
+            return analysis
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Training Data Quality Analysis fehlgeschlagen: {e}")
+            return {'error': str(e)}
+    
+    def _validate_intelligent_strategy_training(self):
+        """Validiert intelligentes Strategie-Training"""
+        try:
+            validation_results = {
+                'valid': True,
+                'issues': []
+            }
+            
+            # Prüfe Model-Performance
+            if hasattr(self.strategy, 'model_performance'):
+                for model_name, perf in self.strategy.model_performance.items():
+                    score = perf.get('cv_mean', perf.get('train_score', 0))
+                    if score < 0.5:
+                        validation_results['issues'].append(f'Low performance for {model_name}: {score:.3f}')
+                        if score < 0.3:
+                            validation_results['valid'] = False
+            
+            # Prüfe Feature Count
+            if hasattr(self.strategy, 'feature_names') and len(self.strategy.feature_names) < 5:
+                validation_results['issues'].append(f'Very few features: {len(self.strategy.feature_names)}')
+            
+            # Prüfe Regime-Erkennung
+            if hasattr(self.strategy, 'market_regime') and self.strategy.market_regime == 'unknown':
+                validation_results['issues'].append('Market regime not detected')
+            
+            # Log Results
+            if validation_results['valid']:
+                self.logger.info("✅ Strategie-Training Validierung erfolgreich")
+            else:
+                self.logger.warning(f"⚠️ Strategie-Training Validierung mit Problemen: {validation_results['issues']}")
+            
+            if validation_results['issues']:
+                for issue in validation_results['issues']:
+                    self.logger.info(f"  - {issue}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Strategie-Training Validierung fehlgeschlagen: {e}")
+    
+    def _calculate_regime_duration(self) -> int:
+        """Berechnet aktuelle Regime-Dauer"""
+        try:
+            if not hasattr(self, 'regime_history') or not self.regime_history:
+                return 0
+            
+            current_regime = self.strategy.market_regime
+            last_change = None
+            
+            # Finde letzten Regime-Wechsel
+            for entry in reversed(self.regime_history):
+                if entry.get('new_regime', entry.get('regime')) != current_regime:
+                    last_change = entry['timestamp']
+                    break
+            
+            if last_change:
+                return (datetime.now() - last_change).days
+            return len(self.regime_history)  # Fallback
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Regime Duration Berechnung fehlgeschlagen: {e}")
+            return 0
+    
+    def _calculate_regime_stability(self) -> float:
+        """Berechnet Regime-Stabilität"""
+        try:
+            if not hasattr(self, 'regime_history') or len(self.regime_history) < 5:
+                return 0.5
+            
+            # Zähle Regime-Wechsel in letzten 30 Tagen
+            recent_changes = 0
+            now = datetime.now()
+            
+            for i in range(1, len(self.regime_history)):
+                entry_time = self.regime_history[i]['timestamp']
+                if (now - entry_time).days <= 30:
+                    prev_regime = self.regime_history[i-1].get('new_regime', 
+                                                             self.regime_history[i-1].get('regime'))
+                    curr_regime = self.regime_history[i].get('new_regime',
+                                                           self.regime_history[i].get('regime'))
+                    if prev_regime != curr_regime:
+                        recent_changes += 1
+            
+            # Stabilität = 1 - (Wechsel / erwartete_max_Wechsel)
+            max_expected_changes = 6  # Max 6 Wechsel in 30 Tagen als "instabil"
+            stability = max(0.0, 1.0 - (recent_changes / max_expected_changes))
+            
+            return stability
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Regime Stability Berechnung fehlgeschlagen: {e}")
+            return 0.5
+    
+    def _execute_intelligent_trading_cycle(self, symbol: str):
+        """Führt intelligenten Trading-Zyklus aus"""
+        
+        try:
+            cycle_start = time.time()
+            
+            # 1. Erweiterte Marktdaten mit Qualitätsprüfung
+            current_data = self._get_enhanced_intelligent_market_data(symbol)
+            if current_data is None or current_data.empty:
+                self.logger.debug("⏭️ Keine aktuellen Daten - überspringe intelligenten Zyklus")
+                return
+            
+            # 2. ERWEITERT: Pre-Signal Intelligence Gathering
+            market_context = self._gather_market_intelligence(current_data, symbol)
+            
+            # 3. Generiere intelligentes Signal mit Kontext
+            latest_row = current_data.iloc[-1]
+            signal = self._generate_enhanced_intelligent_signal(latest_row, symbol, market_context)
+            
+            # 4. ERWEITERT: Signal-Intelligenz-Analyse
+            signal_analysis = self._analyze_signal_intelligence(signal, latest_row, market_context)
+            
+            # 5. Update Metriken
+            self.strategy_performance['signals_generated'] += 1
+            if signal.get('confidence'):
+                self.strategy_performance['confidence_history'].append(signal['confidence'])
+            
+            # 6. ERWEITERT: Intelligente Entscheidungslogik
+            execution_decision = self._make_intelligent_execution_decision(
+                signal, signal_analysis, market_context
+            )
+            
+            if execution_decision['action'] == 'skip':
+                self.strategy_performance['signals_executed'] += 0  # Skip zählt nicht
+                self.logger.debug(f"🤔 Intelligente Entscheidung: SKIP - {execution_decision['reason']}")
+                return
+            elif execution_decision['action'] == 'hold':
+                self.logger.debug("📊 Intelligente Entscheidung: HOLD")
+                return
+            
+            # 7. ERWEITERT: Führe intelligenten Trade aus
+            success = self._execute_enhanced_intelligent_trade(
+                symbol, signal, latest_row['close'], execution_decision, market_context
+            )
+            
+            if success:
+                self.strategy_performance['signals_executed'] += 1
+            
+            # 8. ERWEITERT: Post-Trade Learning Update
+            self._post_trade_learning_update(symbol, signal, execution_decision, success)
+            
+            # 9. Performance Tracking
+            cycle_time = time.time() - cycle_start
+            self.logger.debug(f"⚡ Intelligenter Trading-Zyklus completed in {cycle_time:.2f}s")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Intelligenter Trading-Zyklus Fehler: {e}", exc_info=True)
+            if self.email_alerter:
+                self.email_alerter.send_error_alert("Intelligent Trading Cycle Error", str(e))
+    
+    def run_backtest(self, symbol: str, start_date: str, end_date: str, 
+                    initial_capital: float = 10000.0) -> Dict[str, Any]:
+        """
+        ERWEITERT: Führt Backtest mit intelligenter Analyse aus
+        """
+        self.logger.info(f"🔄 Starte erweiterten Backtest: {symbol} ({start_date} - {end_date})")
+        
+        try:
+            # Validiere Eingaben
+            self._validate_backtest_inputs(symbol, start_date, end_date, initial_capital)
+            
+            # Lade historische Daten
+            self.logger.info("📊 Lade historische Daten...")
+            data = self._load_enhanced_historical_data(symbol, start_date, end_date)
+            
+            if data.empty:
+                raise ValueError("Keine historischen Daten erhalten - prüfe Symbol und Zeitraum")
+                
+            self.logger.info(f"✅ Daten geladen: {len(data)} Datenpunkte von {data.index[0]} bis {data.index[-1]}")
+            
+            # ERWEITERT: Pre-Backtest Analyse
+            pre_analysis = self._perform_pre_backtest_analysis(data, symbol)
+            
+            # Konfiguriere erweiterten Backtester
+            backtest_config = self.config.get('backtest', {})
+            backtester = Backtester(
+                strategy=self.strategy,
+                initial_capital=initial_capital,
+                commission=backtest_config.get('commission', 0.0),
+                slippage=backtest_config.get('slippage', 0.001)
+            )
+            
+            # Führe Backtest mit Monitoring aus
+            self.logger.info("⚡ Führe erweiterten Backtest aus...")
+            results = backtester.run(data, symbol)
+            
+            # ERWEITERT: Post-Backtest Intelligent Analysis
+            enhanced_results = self._enhance_backtest_results_intelligent(
+                results, data, symbol, pre_analysis
+            )
+            
+            # ERWEITERT: Adaptive Learning von Backtest-Ergebnissen
+            self._learn_from_backtest_results(enhanced_results, data)
+            
+            # Performance Summary mit intelligenten Metriken
+            self._log_intelligent_backtest_summary(enhanced_results)
+            
+            # ERWEITERT: Email-Summary mit Regime-Analyse
+            if self.email_alerter and self.config.get('alerts', {}).get('email_daily_summary', False):
+                self._send_intelligent_backtest_summary(symbol, enhanced_results)
+            
+            return enhanced_results
+            
+        except Exception as e:
+            self.logger.error(f"❌ Erweiterter Backtest fehlgeschlagen: {e}", exc_info=True)
+            if self.email_alerter:
+                self.email_alerter.send_error_alert("Intelligent Backtest Error", str(e))
+            raise
+    
+    def run_live(self, symbol: str):
+        """
+        ERWEITERT: Startet intelligentes Live-Trading mit adaptiver Steuerung
+        """
+        self.logger.info(f"🚀 Starte intelligentes Live-Trading für {symbol}")
+        
+        # Prüfe Marktzeiten
+        live_config = self.config.get('live_trading', {})
+        market_hours_only = live_config.get('market_hours_only', True)
+        
+        if market_hours_only and not self.data_provider.is_market_open():
+            self.logger.warning("Markt ist geschlossen - warte auf Öffnung")
+            
+        self.is_running = True
+        
+        try:
+            # ERWEITERT: Lade initiale Daten und trainiere intelligente Strategie
+            self._initialize_intelligent_strategy_for_live(symbol)
+            
+            # ERWEITERT: Setup für Online Learning und Monitoring
+            self._setup_live_monitoring()
+            
+            # Konfiguriere erweiterten Scheduler
+            update_interval = live_config.get('update_interval', 60)
+            
+            def intelligent_trading_job():
+                if not market_hours_only or self.data_provider.is_market_open():
+                    self._execute_intelligent_trading_cycle(symbol)
+                    self._update_live_monitoring()
+                else:
+                    self.logger.debug("Markt geschlossen - überspringe intelligenten Trading-Zyklus")
+            
+            # Schedule Jobs mit intelligenter Überwachung
+            if update_interval < 60:
+                self._run_intelligent_continuous_trading(symbol, update_interval)
+            else:
+                # Für längere Intervalle verwende schedule mit Monitoring
+                schedule.every(update_interval).seconds.do(intelligent_trading_job)
+                
+                # ERWEITERT: Zusätzliche Monitoring-Jobs
+                schedule.every(5).minutes.do(lambda: self._monitor_strategy_health())
+                schedule.every(30).minutes.do(lambda: self._adaptive_parameter_update())
+                schedule.every(1).hour.do(lambda: self._regime_check_and_adapt(symbol))
+                
+                self._run_scheduled_intelligent_trading()
+                
+        except KeyboardInterrupt:
+            self.logger.info("⏹️ Intelligentes Live-Trading durch Benutzer gestoppt")
+            self.is_running = False
+        except Exception as e:
+            self.logger.error(f"❌ Intelligentes Live-Trading Fehler: {e}", exc_info=True)
+            if self.email_alerter:
+                self.email_alerter.send_error_alert("Intelligent Live Trading Error", str(e))
+            self.is_running = False
+            raise
+        finally:
+            self._cleanup_intelligent_live_trading()
+    
+    def stop(self):
+        """ERWEITERT: Stoppt den intelligenten Controller"""
+        self.logger.info("⏹️ Stoppe intelligenten Trading Controller...")
+        self.is_running = False
+        
+        # Stoppe Threading
+        if hasattr(self, 'stop_event'):
+            self.stop_event.set()
+        
+        # Warte auf Trading-Thread
+        if hasattr(self, 'trading_thread') and self.trading_thread and self.trading_thread.is_alive():
+            self.logger.info("⏳ Warte auf Trading-Thread...")
+            self.trading_thread.join(timeout=10)
+        
+        # ERWEITERT: Intelligentes Shutdown
+        try:
+            # Finale Metriken loggen
+            if hasattr(self, 'strategy_performance'):
+                self.logger.info("📊 Finale Performance-Metriken:")
+                for key, value in self.strategy_performance.items():
+                    self.logger.info(f"   • {key}: {value}")
+            
+            # Schließe alle offenen Positionen (optional)
+            try:
+                positions = self.execution.get_positions()
+                for position in positions:
+                    if float(position.get('qty', 0)) != 0:
+                        symbol = position['symbol']
+                        self.logger.info(f"📤 Schließe finale Position: {symbol}")
+                        self.execution.close_position(symbol)
+            except Exception as e:
+                self.logger.error(f"❌ Fehler beim Schließen finaler Positionen: {e}")
+            
+            # ERWEITERT: Finale Strategie-Persistierung
+            if hasattr(self.strategy, '_save_training_state'):
+                try:
+                    final_data = pd.DataFrame([{
+                        'timestamp': datetime.now(),
+                        'shutdown': True,
+                        'final_regime': getattr(self.strategy, 'market_regime', 'unknown')
+                    }])
+                    self.strategy._save_training_state(final_data)
+                    self.logger.info("💾 Finale Strategie-Zustand gespeichert")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Finale Strategie-Speicherung fehlgeschlagen: {e}")
+            
+            # ERWEITERT: Finale System-Benachrichtigung
+            if self.email_alerter:
+                try:
+                    runtime = datetime.now() - getattr(self, 'monitoring_start_time', datetime.now())
+                    final_stats = {
+                        'runtime': str(runtime),
+                        'signals_generated': self.strategy_performance.get('signals_generated', 0),
+                        'trades_executed': self.strategy_performance.get('signals_executed', 0),
+                        'regime_changes': self.strategy_performance.get('regime_changes', 0),
+                        'online_learning_updates': self.strategy_performance.get('online_learning_updates', 0)
+                    }
+                    
+                    self.email_alerter.send_system_status(
+                        status="stopped",
+                        uptime=str(runtime),
+                        last_trade=f"{final_stats['trades_executed']} trades executed"
+                    )
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Finale Benachrichtigung fehlgeschlagen: {e}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Fehler beim intelligenten Shutdown: {e}")
+        
+        self.logger.info("✅ Intelligenter Trading Controller gestoppt")
+    
+    def get_status(self) -> Dict[str, Any]:
+        """ERWEITERT: Gibt erweiterten aktuellen Status zurück"""
+        
+        try:
+            base_status = {
+                'is_running': self.is_running,
+                'last_signal_time': self.last_signal_time.isoformat() if self.last_signal_time else None,
+                'strategy_fitted': getattr(self.strategy, 'is_fitted', False) if hasattr(self.strategy, 'is_fitted') else False
+            }
+            
+            # Account-Informationen
+            try:
+                account_info = self.execution.get_account_info()
+                base_status.update({
+                    'account_value': account_info.get('equity', 0),
+                    'buying_power': account_info.get('buying_power', 0),
+                    'cash': account_info.get('cash', 0)
+                })
+            except Exception as e:
+                base_status['account_error'] = str(e)
+            
+            # Positionen
+            try:
+                positions = self.execution.get_positions()
+                base_status.update({
+                    'positions_count': len(positions),
+                    'positions': positions[:5]  # Nur erste 5 für Status
+                })
+            except Exception as e:
+                base_status['positions_error'] = str(e)
+            
+            # Markt-Status
+            try:
+                base_status['market_open'] = self.data_provider.is_market_open()
+            except Exception as e:
+                base_status['market_status_error'] = str(e)
+            
+            # ERWEITERT: Intelligente Status-Informationen
+            if hasattr(self, 'strategy_performance'):
+                base_status['intelligent_metrics'] = {
+                    'signals_generated': self.strategy_performance.get('signals_generated', 0),
+                    'signals_executed': self.strategy_performance.get('signals_executed', 0),
+                    'regime_changes': self.strategy_performance.get('regime_changes', 0),
+                    'online_learning_updates': self.strategy_performance.get('online_learning_updates', 0)
+                }
+                
+                # Execution Rate
+                if self.strategy_performance.get('signals_generated', 0) > 0:
+                    base_status['intelligent_metrics']['execution_rate'] = (
+                        self.strategy_performance.get('signals_executed', 0) / 
+                        self.strategy_performance.get('signals_generated', 1)
+                    )
+            
+            # Strategie-spezifische Informationen
+            if hasattr(self.strategy, 'market_regime'):
+                base_status['current_regime'] = self.strategy.market_regime
+                
+            if hasattr(self.strategy, 'model_performance'):
+                base_status['model_performance'] = self.strategy.model_performance
+            
+            # Monitoring-Informationen
+            if hasattr(self, 'monitoring_start_time'):
+                base_status['uptime'] = str(datetime.now() - self.monitoring_start_time)
+                
+            if hasattr(self, 'monitoring_metrics'):
+                base_status['monitoring'] = self.monitoring_metrics
+            
+            # Confidence-Performance (letzte 10)
+            if hasattr(self, 'confidence_performance_tracking') and self.confidence_performance_tracking:
+                recent_performance = self.confidence_performance_tracking[-10:]
+                base_status['recent_performance'] = {
+                    'trades_count': len(recent_performance),
+                    'success_rate': sum(1 for t in recent_performance if t['success']) / len(recent_performance),
+                    'avg_confidence': sum(t['signal_confidence'] for t in recent_performance) / len(recent_performance)
+                }
+            
+            # Regime-Historie (letzte 3)
+            if hasattr(self, 'regime_history') and self.regime_history:
+                base_status['recent_regimes'] = [
+                    {
+                        'timestamp': entry['timestamp'].isoformat(),
+                        'regime': entry.get('new_regime', entry.get('regime', 'unknown'))
+                    }
+                    for entry in self.regime_history[-3:]
+                ]
+            
+            return base_status
+            
+        except Exception as e:
+            self.logger.error(f"❌ Status-Abfrage fehlgeschlagen: {e}")
+            return {
+                'is_running': self.is_running,
+                'error': str(e),
+                'status_timestamp': datetime.now().isoformat()
+            }
